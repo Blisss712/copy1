@@ -43,8 +43,11 @@ The app automatically reads these variables on launch and displays **Server Live
 
 This script sets up:
 * The `public.profiles` table linked to Supabase Auth.
-* Row Level Security (RLS) policies allowing users to safely read and update their profiles.
+* The `public.organizations` table for parish groups and ministries.
+* The `public.events` table for scheduling liturgical masses and events.
+* Row Level Security (RLS) policies allowing users and administrators to safely interact with data.
 * An automatic trigger that creates a profile record every time a new volunteer or administrator registers.
+* Starter seed data for organizations and events.
 
 ---
 
