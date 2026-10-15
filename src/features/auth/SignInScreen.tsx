@@ -41,8 +41,7 @@ export function SignInScreen({
     setLoading(false)
 
     if (res.ok) {
-      const isAdminUser = email.toLowerCase().includes("admin")
-      onSuccess(isAdminUser)
+      onSuccess(!!res.isAdmin)
     } else {
       setError(res.error || "Failed to sign in. Please check your credentials.")
     }

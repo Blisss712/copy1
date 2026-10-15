@@ -21,7 +21,7 @@ export interface AuthContextValue {
   signIn: (
     email: string,
     password: string,
-  ) => Promise<{ ok: boolean; error?: string }>
+  ) => Promise<{ ok: boolean; error?: string; isAdmin?: boolean }>
   signUp: (
     email: string,
     password: string,

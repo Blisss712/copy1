@@ -37,8 +37,9 @@ export function AdminLoginScreen({
     setLoading(true)
     setError("")
 
-    // Try hardcoded demo admin credentials first
+    // Try hardcoded demo admin credentials first (only if Supabase is not configured)
     if (
+      !isConfigured &&
       identifier.toLowerCase() === DEMO_ADMIN_USER &&
       password === DEMO_ADMIN_PASS
     ) {
@@ -53,7 +54,11 @@ export function AdminLoginScreen({
       const res = await signIn(identifier, password)
       setLoading(false)
       if (res.ok) {
-        onAuthenticated()
+        if (res.isAdmin) {
+          onAuthenticated()
+        } else {
+          setError("This account does not have administrator privileges.")
+        }
       } else {
         setError(res.error || "The username or password is incorrect.")
       }

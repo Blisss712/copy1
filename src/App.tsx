@@ -70,9 +70,44 @@ function AppContent() {
     go("welcome")
   }
 
-  // Auto-restore view if session is active
+  // Keep active ministry in sync with Supabase profile
   useEffect(() => {
-    if (!auth.loading && auth.profile && screen === "welcome") {
+    if (auth.profile?.ministry) {
+      const match = MINISTRIES.find(
+        (m) => m.name.toLowerCase() === auth.profile?.ministry?.toLowerCase(),
+      )
+      if (match) {
+        setMinistry(match)
+      } else {
+        setMinistry({
+          id: auth.profile.ministry.toLowerCase().replace(/\s+/g, "-"),
+          name: auth.profile.ministry,
+          parish: auth.profile.parish || "St. Joseph Parish",
+        })
+      }
+    }
+  }, [auth.profile?.ministry, auth.profile?.parish])
+
+  // Guard protected screens: prevent unauthenticated users from entering the scheduling system
+  const isAuthScreen =
+    screen === "welcome" ||
+    screen === "sign-in" ||
+    screen === "sign-up" ||
+    screen === "forgot-password" ||
+    screen === "admin-login"
+
+  useEffect(() => {
+    if (auth.loading) return
+
+    // If user is not authenticated and on a protected screen, bounce them to welcome
+    if (!auth.profile && !isAuthScreen) {
+      setAdminAuthenticated(false)
+      setScreen("welcome")
+      return
+    }
+
+    // Auto-restore view if session is active and currently on welcome
+    if (auth.profile && screen === "welcome") {
       if (auth.isAdmin) {
         setAdminAuthenticated(true)
         setScreen("admin")
@@ -80,7 +115,7 @@ function AppContent() {
         setScreen("home")
       }
     }
-  }, [auth.loading, auth.profile, auth.isAdmin, screen])
+  }, [auth.loading, auth.profile, auth.isAdmin, screen, isAuthScreen])
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" })
@@ -105,6 +140,17 @@ function AppContent() {
     [],
   )
 
+  if (auth.loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F4F6FB]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-[#1B3A6B]/20 border-t-[#1B3A6B] rounded-full animate-spin" />
+          <p className="text-sm font-semibold text-[#64748B]">Loading E-Skedyul...</p>
+        </div>
+      </div>
+    )
+  }
+
   const currentUserName =
     auth.profile?.fullName || wizard.form.name || "Maria Santos"
 
@@ -113,7 +159,8 @@ function AppContent() {
     case "welcome":
       return (
         <WelcomeScreen
-          onStart={() => go("tell-name")}
+          onSignUp={() => go("sign-up")}
+          onStart={() => go("sign-up")}
           onSignIn={() => go("sign-in")}
           onAdmin={() => go("admin-login")}
         />
@@ -145,7 +192,10 @@ function AppContent() {
               setAdminAuthenticated(true)
               go("admin")
             } else {
-              go("tell-name")
+              if (auth.profile?.fullName) {
+                wizard.updateForm({ name: auth.profile.fullName })
+              }
+              go("join-group")
             }
           }}
           onGoToSignIn={() => go("sign-in")}
@@ -204,28 +254,64 @@ function AppContent() {
           }
           setFirstName={wizard.setFirstName}
           setLastName={wizard.setLastName}
+          onBack={() => go("welcome")}
           onContinue={() => {
-            wizard.saveName()
+            const first =
+              wizard.firstName || auth.profile?.fullName.split(" ")[0] || ""
+            const last =
+              wizard.lastName ||
+              auth.profile?.fullName.split(" ").slice(1).join(" ") ||
+              ""
+            const fullName = `${first} ${last}`.trim()
+            wizard.updateForm({ name: fullName })
+            if (fullName && auth.profile) {
+              auth.updateProfile({ fullName })
+            }
             go("join-group")
           }}
         />
       )
 
     case "join-group": {
-      // Back returns to wherever the member came from: name entry during onboarding, or Home via "+ Join Another Ministry".
-      const back = () => go(prevScreen)
+      // Back returns to wherever the member came from: Home via "+ Join Another Ministry", or Home after sign-up.
+      const back = () => {
+        if (prevScreen === "sign-up" || prevScreen === "tell-name") {
+          go("home")
+        } else {
+          go(prevScreen)
+        }
+      }
+      const handleGroupJoined = (groupName?: string) => {
+        const targetGroup = groupName || wizard.form.groupName
+        if (targetGroup && auth.profile) {
+          auth.updateProfile({ ministry: targetGroup })
+          const matched = MINISTRIES.find(
+            (m) => m.name.toLowerCase() === targetGroup.toLowerCase(),
+          )
+          if (matched) {
+            setMinistry(matched)
+          } else {
+            setMinistry({
+              id: targetGroup.toLowerCase().replace(/\s+/g, "-"),
+              name: targetGroup,
+              parish: auth.profile.parish || "St. Joseph Parish",
+            })
+          }
+        }
+        go("pending")
+      }
       return isDesktop ? (
         <DesktopJoinGroupScreen
           data={wizard.form}
           setData={wizard.updateForm}
-          onJoin={() => go("pending")}
+          onJoin={handleGroupJoined}
           onBack={back}
         />
       ) : (
         <JoinGroupScreen
           data={wizard.form}
           setData={wizard.updateForm}
-          onJoin={() => go("pending")}
+          onJoin={handleGroupJoined}
           onBack={back}
         />
       )
@@ -235,13 +321,13 @@ function AppContent() {
       return isDesktop ? (
         <DesktopPendingScreen
           data={wizard.form}
-          onBack={reset}
+          onBack={() => go("join-group")}
           onApproved={() => go("home")}
         />
       ) : (
         <PendingScreen
           data={wizard.form}
-          onBack={reset}
+          onBack={() => go("join-group")}
           onApproved={() => go("home")}
         />
       )

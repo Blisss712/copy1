@@ -5,13 +5,17 @@ import { EXAMPLE_GROUPS, PENDING_STEPS } from "./data"
 
 export function WelcomeScreen({
   onStart,
+  onSignUp,
   onSignIn,
   onAdmin,
 }: {
-  onStart: () => void
+  onStart?: () => void
+  onSignUp?: () => void
   onSignIn: () => void
   onAdmin: () => void
 }) {
+  const handleSignUp = onSignUp || onStart
+
   return (
     <ScreenShell>
       <div className="mt-16 flex flex-col items-center gap-10">
@@ -37,7 +41,7 @@ export function WelcomeScreen({
 
         <div className="flex w-full flex-col items-center gap-3">
           <Button onClick={onSignIn} variant="primary">Sign In</Button>
-          <Button onClick={onStart} variant="secondary">Create Account / Join</Button>
+          <Button onClick={handleSignUp} variant="secondary">Create Account / Join</Button>
           <Button onClick={onAdmin} variant="ghost">Sign in as Admin</Button>
         </div>
       </div>
@@ -45,12 +49,13 @@ export function WelcomeScreen({
   )
 }
 
-export function TellNameScreen({ firstName, lastName, setFirstName, setLastName, onContinue }: {
+export function TellNameScreen({ firstName, lastName, setFirstName, setLastName, onContinue, onBack }: {
   firstName: string
   lastName: string
   setFirstName: (value: string) => void
   setLastName: (value: string) => void
   onContinue: () => void
+  onBack?: () => void
 }) {
   const [error, setError] = useState("")
 
@@ -65,6 +70,7 @@ export function TellNameScreen({ firstName, lastName, setFirstName, setLastName,
 
   return (
     <ScreenShell>
+      {onBack && <BackButton onClick={onBack} />}
       <div className="mb-8 flex justify-center"><Logo size="md" /></div>
       <Card>
         <p className="text-2xl font-bold text-[#1B3A6B]">Tell us your name</p>
@@ -83,7 +89,7 @@ export function TellNameScreen({ firstName, lastName, setFirstName, setLastName,
 export function JoinGroupScreen({
   data, setData, onJoin, onBack,
 }: {
-  data: FormData; setData: (d: Partial<FormData>) => void; onJoin: () => void; onBack: () => void
+  data: FormData; setData: (d: Partial<FormData>) => void; onJoin: (groupName?: string) => void; onBack: () => void
 }) {
   const [error, setError] = useState("")
   const [pasteMode, setPasteMode] = useState(false)
@@ -96,7 +102,7 @@ export function JoinGroupScreen({
     if (!code) { setError("Please enter a group code to continue."); return }
     const groupName = EXAMPLE_GROUPS[code]
     if (!groupName) { setError("We couldn't find a group with that code. Please check with your group leader and try again."); return }
-    setData({ groupCode: code, groupName }); setError(""); onJoin()
+    setData({ groupCode: code, groupName }); setError(""); onJoin(groupName)
   }
 
   return (

@@ -114,15 +114,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isConfigured])
 
   // Sign in with email & password
-  async function signIn(email: string, password: string): Promise<{ ok: boolean; error?: string }> {
+  async function signIn(email: string, password: string): Promise<{ ok: boolean; error?: string; isAdmin?: boolean }> {
     if (!isConfigured) {
       // Demo authentication fallback
       if (email.toLowerCase().includes("admin") || password === "admin123") {
         signInAsDemo("admin")
-        return { ok: true }
+        return { ok: true, isAdmin: true }
       }
       signInAsDemo("member")
-      return { ok: true }
+      return { ok: true, isAdmin: false }
     }
 
     try {
@@ -138,8 +138,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(data.session)
         const p = await resolveProfile(data.user)
         setProfile(p)
+        const isUserAdmin = p.role === "admin" || (data.user.user_metadata?.role as string) === "admin"
+        return { ok: true, isAdmin: isUserAdmin }
       }
-      return { ok: true }
+      return { ok: true, isAdmin: false }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "An unexpected error occurred during sign in."
       return { ok: false, error: msg }
@@ -187,6 +189,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(data.session)
         const p = await resolveProfile(data.user)
         setProfile(p)
+
+        // Ensure profile record is synced in public.profiles
+        try {
+          await supabase.from("profiles").upsert({
+            id: data.user.id,
+            email: email.trim(),
+            full_name: fullName.trim(),
+            role,
+            parish: "St. Joseph Parish",
+            ministry: "Lectors",
+            updated_at: new Date().toISOString(),
+          })
+        } catch {
+          // graceful fail if table/trigger already handled it
+        }
+
         return { ok: true }
       }
 
